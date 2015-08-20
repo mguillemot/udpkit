@@ -1,4 +1,4 @@
-/*
+﻿/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -21,8 +21,6 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 * THE SOFTWARE.
 */
-
-using System;
 
 namespace UdpKit {
     enum UdpConnectionState : int {
@@ -261,12 +259,7 @@ namespace UdpKit {
             // set recv time of for last packet
             recvTime = socket.GetCurrentTime();
 
-            // Erhune:
-            // X bytes of header
-            // 1 byte of 0x00 <==== command marker
-            // 1 byte of command
-            //UnityEngine.Debug.LogWarning(BitConverter.ToString(buffer.Data));
-            if (buffer.Data[UdpSocket.HeaderBitSize >> 3] != 0x00) {
+            if ((buffer.Data[0] & 1) == 1) {
                 OnObjectReceived(buffer);
             } else {
                 OnCommandReceived(buffer);
@@ -275,7 +268,7 @@ namespace UdpKit {
 
         void OnCommandReceived (UdpStream buffer) {
             if (ParseHeader(buffer)) {
-                buffer.Ptr += 8; // Erhune: skip command marker
+                buffer.Ptr = UdpSocket.HeaderBitSize;
                 UdpCommandType cmd = (UdpCommandType) buffer.ReadByte(8);
 
                 switch (cmd) {
@@ -345,8 +338,7 @@ namespace UdpKit {
         public void SendCommand (UdpCommandType cmd) {
             if (CheckCanSend(true) == UdpSendFailReason.None) {
                 UdpStream stream = socket.GetWriteStream(mtu << 3, UdpSocket.HeaderBitSize);
-                stream.WriteByte(0x00); // Erhune: command marker
-                stream.WriteByte((byte) cmd);
+                stream.WriteByte((byte) cmd, 8);
 
                 UdpHeader header = MakeHeader(false);
                 header.Pack(stream, socket);
@@ -384,7 +376,7 @@ namespace UdpKit {
 
         UdpHandle MakeHandle (ref UdpHeader header) {
             UdpHandle handle = new UdpHandle();
-            //handle.IsObject = header.IsObject;
+            handle.IsObject = header.IsObject;
             handle.ObjSequence = header.ObjSequence;
             handle.SendTime = header.Now;
             return handle;
@@ -392,7 +384,7 @@ namespace UdpKit {
 
         UdpHeader MakeHeader (bool isObject) {
             UdpHeader header = new UdpHeader();
-            //header.IsObject = isObject;
+            header.IsObject = isObject;
             header.AckHistory = recvHistory;
             header.AckSequence = recvSequence;
             header.ObjSequence = UdpMath.SeqNext(sendSequence, UdpHeader.SEQ_MASK);
@@ -427,13 +419,12 @@ namespace UdpKit {
             UdpAssert.Assert(stream.Ptr == 0);
 
             UdpHeader header = new UdpHeader();
-            header.Unpack(stream);
+            header.Unpack(stream, socket);
 
             // after unpacking the header, the pointer should be at the header size
             UdpAssert.Assert(stream.Ptr == UdpSocket.HeaderBitSize);
 
             int seqDistance = UdpMath.SeqDistance(header.ObjSequence, recvSequence, UdpHeader.SEQ_PADD);
-            UdpLog.Trace("ParseHeader() header.objSequence={0} recvSequence={1} seqDistance={2} header.ackSequence={3} header.ackHistory={4}", header.ObjSequence, recvSequence, seqDistance, header.AckSequence, Convert.ToString((uint) header.AckHistory, 2));
 
             // we have to be within window size
             if (seqDistance > socket.Config.PacketWindow || seqDistance < -socket.Config.PacketWindow) {
@@ -594,14 +585,11 @@ namespace UdpKit {
         }
 
         void AckHandles (UdpHeader header, bool updateRtt) {
-            //UdpLog.Debug("AckHandles()");
             while (!sendWindow.Empty) {
                 UdpHandle handle = sendWindow.Peek();
 
                 int seqDistance = UdpMath.SeqDistance(handle.ObjSequence, header.AckSequence, UdpHeader.SEQ_PADD);
-                //UdpLog.Debug("Handle of {0} (object?{1}) seqDist={1}", handle.Object, handle.IsObject, seqDistance);
-                if (seqDistance > 0)
-                {
+                if (seqDistance > 0) {
                     break;
                 }
 

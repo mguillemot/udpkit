@@ -1,4 +1,4 @@
-/*
+﻿/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -36,7 +36,7 @@ namespace UdpKit {
         }
 
         readonly Queue<byte[]> delayedBuffers = new Queue<byte[]>();
-        readonly List<DelayedPacket> delayedPackets = new List<DelayedPacket>();
+        readonly Queue<DelayedPacket> delayedPackets = new Queue<DelayedPacket>();
 
         bool ShouldDelayPacket {
             get { return Config.SimulatedPingMin > 0 && Config.SimulatedPingMax > 0 && Config.SimulatedPingMin < Config.SimulatedPingMax; }
@@ -54,22 +54,6 @@ namespace UdpKit {
             }
         }
 
-        partial void DelayPacketBy(UdpEndPoint ep, byte[] data, int length, uint delay) {
-            var packet = new DelayedPacket();
-            packet.Data = delayedBuffers.Count > 0 ? delayedBuffers.Dequeue() : new byte[Config.PacketSize * 2];
-            packet.EndPoint = ep;
-            packet.Length = length;
-            packet.Time = GetCurrentTime() + delay;
-
-            // copy entire buffer into packets data buffer
-            Array.Copy(data, 0, packet.Data, 0, data.Length);
-
-            // put on delay queue
-            // Note: here, we sort the delayed packets to allow for simulating disordered packets
-            delayedPackets.Add(packet);
-            delayedPackets.Sort((p1, p2) => p1.Time.CompareTo(p2.Time)); 
-        }
-
         partial void DelayPacket (UdpEndPoint ep, byte[] data, int length) {
             uint pingMin = (uint) Config.SimulatedPingMin;
             uint pingMax = (uint) Config.SimulatedPingMax;
@@ -85,13 +69,12 @@ namespace UdpKit {
             Array.Copy(data, 0, packet.Data, 0, data.Length);
 
             // put on delay queue
-            delayedPackets.Add(packet);
+            delayedPackets.Enqueue(packet);
         }
 
         partial void RecvDelayedPackets () {
-            while (delayedPackets.Count > 0 && GetCurrentTime() >= delayedPackets[0].Time) {
-                DelayedPacket packet = delayedPackets[0];
-                delayedPackets.RemoveAt(0);
+            while (delayedPackets.Count > 0 && GetCurrentTime() >= delayedPackets.Peek().Time) {
+                DelayedPacket packet = delayedPackets.Dequeue();
                 UdpStream stream = GetReadStream();
 
                 // copy data into streams buffer

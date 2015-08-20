@@ -1,4 +1,4 @@
-/*
+﻿/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -34,21 +34,8 @@ namespace UdpKit {
         public uint PacketsReceived { get; private set; }
         public uint PacketsDelivered { get; private set; }
 
-        public UdpStats Clone()
-        {
-            return new UdpStats
-                {
-                    BytesSent = BytesSent,
-                    BytesReceived = BytesReceived,
-                    PacketsSent = PacketsSent,
-                    PacketsLost = PacketsLost,
-                    PacketsReceived = PacketsReceived,
-                    PacketsDelivered = PacketsDelivered,
-                };
-        }
-
 #if !RELEASE_STATS
-        // Erhune: [Conditional("DEBUG")]
+        [Conditional("DEBUG")]
 #endif
         internal void PacketReceived (uint size) {
             PacketsReceived += 1;
@@ -56,7 +43,7 @@ namespace UdpKit {
         }
 
 #if !RELEASE_STATS
-        // Erhune: [Conditional("DEBUG")]
+        [Conditional("DEBUG")]
 #endif
         internal void PacketSent (uint size) {
             PacketsSent += 1;
@@ -64,14 +51,14 @@ namespace UdpKit {
         }
 
 #if !RELEASE_STATS
-        // Erhune: [Conditional("DEBUG")]
+        [Conditional("DEBUG")]
 #endif
         internal void PacketLost () {
             PacketsLost += 1;
         }
 
 #if !RELEASE_STATS
-        // Erhune: [Conditional("DEBUG")]
+        [Conditional("DEBUG")]
 #endif
         internal void PacketDelivered () {
             PacketsDelivered += 1;

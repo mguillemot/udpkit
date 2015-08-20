@@ -1,4 +1,4 @@
-/*
+﻿/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -68,7 +68,7 @@ namespace UdpKit {
         }
 
         static public void User (string format, params object[] args) {
-            if (UdpMath.IsSet(enabled, USER))
+            if (UdpMath.IsSet(enabled, INFO))
                 Write(USER, String.Concat(Time(), ThreadName(), " | user  | ", String.Format(format, args)));
         }
 
