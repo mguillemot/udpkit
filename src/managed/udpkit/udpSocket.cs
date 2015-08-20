@@ -1,4 +1,4 @@
-﻿/*
+/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -67,7 +68,6 @@ namespace UdpKit {
 
     readonly Random random;
     readonly UdpStats stats;
-    readonly Thread threadSocket;
     readonly UdpPlatform platform;
     readonly UdpStream readStream;
     readonly UdpStream writeStream;
@@ -166,7 +166,7 @@ namespace UdpKit {
       eventQueueIn = new Queue<UdpEvent>(config.InitialEventQueueSize);
       eventQueueOut = new Queue<UdpEvent>(config.InitialEventQueueSize);
 
-      threadSocket = new Thread(NetworkLoop);
+      var threadSocket = new Thread(NetworkLoop);
       threadSocket.Name = "udpkit thread";
       threadSocket.IsBackground = true;
       threadSocket.Start();
@@ -322,7 +322,21 @@ namespace UdpKit {
     internal bool Send (UdpEndPoint endpoint, byte[] buffer, int length) {
       if (state == UdpSocketState.Running || state == UdpSocketState.Created) {
         int bytesSent = 0;
-        //UdpLog.Debug("sending packet to {0}", endpoint);
+        UdpLog.Debug("sending packet to {0}", endpoint);
+
+#if DEBUG
+        // Erhune: we might want to drop or delay packets here based on the header, for specific automated tests
+        if (Config.DropOutgoingPackets != null)
+        {
+            var stream = new UdpStream(buffer, length);
+            if (Config.DropOutgoingPackets(stream))
+            {
+                UdpLog.Debug("Droping outgoing packed because of custom function");
+                return true;
+            }
+        }
+#endif
+
         return platform.SendTo(buffer, length, endpoint, ref bytesSent);
       }
 
@@ -382,7 +396,7 @@ namespace UdpKit {
       stream.WriteByte((byte) UdpCommandType.Refused, 8);
 
       UdpHeader header = new UdpHeader();
-      header.IsObject = false;
+      //header.IsObject = false;
       header.AckHistory = 0;
       header.AckSequence = 1;
       header.ObjSequence = 1;
@@ -633,7 +647,8 @@ namespace UdpKit {
       if ((frame & 3) == 3) {
         uint now = GetCurrentTime();
 
-        for (int i = 0; i < connList.Count; ++i) {
+        // Erhune: small optim here because of profiling (do not recompute upper bound every time)
+        for (int i = 0, n = connList.Count; i < n; ++i) {
           UdpConnection cn = connList[i];
 
           switch (cn.state) {
@@ -652,6 +667,7 @@ namespace UdpKit {
             case UdpConnectionState.Destroy:
               if (DestroyConnection(cn)) {
                 --i;
+                --n;
               }
               break;
           }
@@ -666,9 +682,29 @@ namespace UdpKit {
         UdpStream stream = GetReadStream();
 
         if (platform.RecvFrom(stream.Data, stream.Data.Length, ref bytes, ref ep)) {
-          //UdpLog.Debug("received packet from {0}", ep.ToString());
+          UdpLog.Debug("received packet from {0}", ep.ToString());
 
 #if DEBUG
+          // Erhune: we might want to drop or delay packets here based on the header, for specific automated tests
+          if (Config.DropIncomingPackets != null)
+          {
+              if (Config.DropIncomingPackets(stream))
+              {
+                  UdpLog.Debug("Droping incoming packed because of custom function");
+                  return;
+              }
+          }
+          if (Config.DelayIncomingPackets != null)
+          {
+              var delay = Config.DelayIncomingPackets(stream);
+              if (delay > 0)
+              {
+                  UdpLog.Debug("Delaying incoming packed by {0} ms because of custom function", delay);
+                  DelayPacketBy(ep, stream.Data, bytes, delay);
+                  return;
+              }
+          }
+            
           if (ShouldDropPacket) {
             return;
           }
@@ -722,6 +758,7 @@ namespace UdpKit {
 
     #region Partial Methods
     partial void DelayPacket (UdpEndPoint ep, byte[] data, int length);
+    partial void DelayPacketBy (UdpEndPoint ep, byte[] data, int length, uint delay);
     partial void RecvDelayedPackets ();
     #endregion
 

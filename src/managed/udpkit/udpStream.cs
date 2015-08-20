@@ -1,4 +1,4 @@
-﻿/*
+/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -30,9 +30,9 @@ namespace UdpKit {
         internal bool IsPooled = true;
         internal UdpStreamPool Pool;
 
-        internal int Ptr;
-        internal int Length;
-        internal byte[] Data;
+        public int Ptr;    // in bits
+        public int Length; // = Data.Length * 8 = number of bits that we can put in the buffer
+        public byte[] Data;
 
         /// <summary>
         /// A user-assignable object
@@ -170,8 +170,9 @@ namespace UdpKit {
             if (bits <= 8) {
                 InternalWriteByte((byte) (value & 0xFF), bits);
             } else {
-                InternalWriteByte((byte) (value & 0xFF), 8);
+                // Erhune: big endian
                 InternalWriteByte((byte) (value >> 8), bits - 8);
+                InternalWriteByte((byte) (value & 0xFF), 8);
             }
         }
 
@@ -183,7 +184,8 @@ namespace UdpKit {
             if (bits <= 8) {
                 return InternalReadByte(bits);
             } else {
-                return (ushort) (InternalReadByte(8) | (InternalReadByte(bits - 8) << 8));
+                // Erhune: big endian
+                return (ushort) ((InternalReadByte(bits - 8) << 8) | InternalReadByte(8));
             }
         }
 
@@ -234,33 +236,34 @@ namespace UdpKit {
             if (UdpLog.IsEnabled(UdpLog.TRACE))
                 UdpLog.Trace("Writing uint ({0} bits)", bits);
 #endif
+            // Erhune: big endian
             byte 
-                a = (byte) (value >> 0),
-                b = (byte) (value >> 8),
-                c = (byte) (value >> 16),
-                d = (byte) (value >> 24);
+                a = (byte) (value >> 24),
+                b = (byte) (value >> 16),
+                c = (byte) (value >> 8),
+                d = (byte) (value >> 0);
 
             switch ((bits + 7) / 8) {
                 case 1:
-                    InternalWriteByte(a, bits);
+                    InternalWriteByte(d, bits);
                     break;
 
                 case 2:
-                    InternalWriteByte(a, 8);
-                    InternalWriteByte(b, bits - 8);
+                    InternalWriteByte(c, bits - 8);
+                    InternalWriteByte(d, 8);
                     break;
 
                 case 3:
-                    InternalWriteByte(a, 8);
-                    InternalWriteByte(b, 8);
-                    InternalWriteByte(c, bits - 16);
+                    InternalWriteByte(b, bits - 16);
+                    InternalWriteByte(c, 8);
+                    InternalWriteByte(d, 8);
                     break;
 
                 case 4:
-                    InternalWriteByte(a, 8);
+                    InternalWriteByte(a, bits - 24);
                     InternalWriteByte(b, 8);
                     InternalWriteByte(c, 8);
-                    InternalWriteByte(d, bits - 24);
+                    InternalWriteByte(d, 8);
                     break;
             }
         }
@@ -270,6 +273,7 @@ namespace UdpKit {
             if (UdpLog.IsEnabled(UdpLog.TRACE))
                 UdpLog.Trace("Reading uint ({0} bits)", bits);
 #endif
+            // Erhune: big endian
             int 
                 a = 0, 
                 b = 0, 
@@ -278,29 +282,34 @@ namespace UdpKit {
 
             switch ((bits + 7) / 8) {
                 case 1:
-                    a = InternalReadByte(bits);
+                    d = InternalReadByte(bits);
                     break;
 
                 case 2:
+<<<<<<< HEAD
                     a = InternalReadByte(8);
                     b = InternalReadByte(bits - 8);
+=======
+                    c = InternalReadByte(bits - 8);
+                    d = InternalReadByte(8);
+>>>>>>> master
                     break;
 
                 case 3:
-                    a = InternalReadByte(8);
-                    b = InternalReadByte(8);
-                    c = InternalReadByte(bits - 16);
+                    b = InternalReadByte(bits - 16);
+                    c = InternalReadByte(8);
+                    d = InternalReadByte(8);
                     break;
 
                 case 4:
-                    a = InternalReadByte(8);
+                    a = InternalReadByte(bits - 24);
                     b = InternalReadByte(8);
                     c = InternalReadByte(8);
-                    d = InternalReadByte(bits - 24);
+                    d = InternalReadByte(8);
                     break;
             }
 
-            return (uint) (a | (b << 8) | (c << 16) | (d << 24));
+            return (uint) (d | (c << 8) | (b << 16) | (a << 24));
         }
 
         public void WriteUInt (uint value) {
@@ -351,8 +360,9 @@ namespace UdpKit {
             if (bits <= 32) {
                 WriteUInt((uint) (value & 0xFFFFFFFF), bits);
             } else {
-                WriteUInt((uint) (value), 32);
-                WriteUInt((uint) (value >> 32), bits - 32);
+                // Erhune: big endian
+                WriteUInt((uint)(value >> 32), bits - 32);
+                WriteUInt((uint)(value), 32);
             }
         }
 
@@ -364,9 +374,10 @@ namespace UdpKit {
             if (bits <= 32) {
                 return ReadUInt(bits);
             } else {
-                ulong a = ReadUInt(32);
-                ulong b = ReadUInt(bits - 32);
-                return a | (b << 32);
+                // Erhune: big endian
+                ulong a = ReadUInt(bits - 32);
+                ulong b = ReadUInt(32);
+                return (a << 32) | b;
             }
         }
 
@@ -407,11 +418,12 @@ namespace UdpKit {
             if (UdpLog.IsEnabled(UdpLog.TRACE))
                 UdpLog.Trace("Writing float (32 bits)");
 #endif
+            // Erhune: big endian
             UdpByteConverter bytes = value;
-            InternalWriteByte(bytes.Byte0, 8);
-            InternalWriteByte(bytes.Byte1, 8);
-            InternalWriteByte(bytes.Byte2, 8);
             InternalWriteByte(bytes.Byte3, 8);
+            InternalWriteByte(bytes.Byte2, 8);
+            InternalWriteByte(bytes.Byte1, 8);
+            InternalWriteByte(bytes.Byte0, 8);
         }
 
         public float ReadFloat () {
@@ -419,11 +431,12 @@ namespace UdpKit {
             if (UdpLog.IsEnabled(UdpLog.TRACE))
                 UdpLog.Trace("Reading float (32 bits)");
 #endif
+            // Erhune: big endian
             UdpByteConverter bytes = default(UdpByteConverter);
-            bytes.Byte0 = InternalReadByte(8);
-            bytes.Byte1 = InternalReadByte(8);
-            bytes.Byte2 = InternalReadByte(8);
             bytes.Byte3 = InternalReadByte(8);
+            bytes.Byte2 = InternalReadByte(8);
+            bytes.Byte1 = InternalReadByte(8);
+            bytes.Byte0 = InternalReadByte(8);
             return bytes.Float32;
         }
 
@@ -432,15 +445,16 @@ namespace UdpKit {
             if (UdpLog.IsEnabled(UdpLog.TRACE))
                 UdpLog.Trace("Writing double (64 bits)");
 #endif
+            // Erhune: big endian
             UdpByteConverter bytes = value;
-            InternalWriteByte(bytes.Byte0, 8);
-            InternalWriteByte(bytes.Byte1, 8);
-            InternalWriteByte(bytes.Byte2, 8);
-            InternalWriteByte(bytes.Byte3, 8);
-            InternalWriteByte(bytes.Byte4, 8);
-            InternalWriteByte(bytes.Byte5, 8);
-            InternalWriteByte(bytes.Byte6, 8);
             InternalWriteByte(bytes.Byte7, 8);
+            InternalWriteByte(bytes.Byte6, 8);
+            InternalWriteByte(bytes.Byte5, 8);
+            InternalWriteByte(bytes.Byte4, 8);
+            InternalWriteByte(bytes.Byte3, 8);
+            InternalWriteByte(bytes.Byte2, 8);
+            InternalWriteByte(bytes.Byte1, 8);
+            InternalWriteByte(bytes.Byte0, 8);
         }
 
         public double ReadDouble () {
@@ -448,15 +462,16 @@ namespace UdpKit {
             if (UdpLog.IsEnabled(UdpLog.TRACE))
                 UdpLog.Trace("Reading double (64 bits)");
 #endif
+            // Erhune: big endian
             UdpByteConverter bytes = default(UdpByteConverter);
-            bytes.Byte0 = InternalReadByte(8);
-            bytes.Byte1 = InternalReadByte(8);
-            bytes.Byte2 = InternalReadByte(8);
-            bytes.Byte3 = InternalReadByte(8);
-            bytes.Byte4 = InternalReadByte(8);
-            bytes.Byte5 = InternalReadByte(8);
-            bytes.Byte6 = InternalReadByte(8);
             bytes.Byte7 = InternalReadByte(8);
+            bytes.Byte6 = InternalReadByte(8);
+            bytes.Byte5 = InternalReadByte(8);
+            bytes.Byte4 = InternalReadByte(8);
+            bytes.Byte3 = InternalReadByte(8);
+            bytes.Byte2 = InternalReadByte(8);
+            bytes.Byte1 = InternalReadByte(8);
+            bytes.Byte0 = InternalReadByte(8);
             return bytes.Float64;
         }
 

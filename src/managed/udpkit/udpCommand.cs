@@ -1,4 +1,4 @@
-﻿/*
+/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -23,7 +23,7 @@
 */
 
 namespace UdpKit {
-    internal enum UdpCommandType : byte {
+    public enum UdpCommandType : byte {
         Connect = 2,
         Accepted = 4,
         Refused = 6,

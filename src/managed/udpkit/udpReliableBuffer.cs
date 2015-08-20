@@ -1,4 +1,4 @@
-﻿/*
+/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -62,6 +62,18 @@ namespace UdpKit {
 
         public bool Send_TryGetForRemoval (out T value) {
             return send.TryRemoveDelivered(out value);
+        }
+
+        // added by Erhune
+        public void SetIsDelivered(T value)
+        {
+            send.SetIsDelivered(value);
+        }
+
+        // added by Erhune
+        public void SetSendAgain(T value)
+        {
+            send.SetSendAgain(value);
         }
 
         public bool Recv_TryEnqueue (T value, out UdpReliableRecvResult result) {

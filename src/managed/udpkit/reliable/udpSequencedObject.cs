@@ -24,6 +24,6 @@
 
 namespace UdpKit {
     public interface IUdpSequencedObject {
-        uint Sequence { get; set; }
+        uint sequence { get; set; }
     }
 }

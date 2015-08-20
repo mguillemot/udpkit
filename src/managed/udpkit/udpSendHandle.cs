@@ -1,4 +1,4 @@
-﻿/*
+/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -26,7 +26,11 @@ namespace UdpKit {
     struct UdpHandle {
         public uint SendTime;
         public ushort ObjSequence;
-        public bool IsObject;
         public object Object;
+
+        public bool IsObject
+        {
+            get { return (Object != null); }
+        }
     }
 }

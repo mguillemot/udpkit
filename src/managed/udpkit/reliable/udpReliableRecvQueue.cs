@@ -1,4 +1,4 @@
-﻿/*
+/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -23,9 +23,11 @@
 */
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace UdpKit {
-    class UdpReliableRecvQueue<T> where T : IUdpSequencedObject {
+    public class UdpReliableRecvQueue<T> : IEnumerable<T> where T : IUdpSequencedObject {
         struct Node {
             public bool Received;
             public T Value;
@@ -61,7 +63,7 @@ namespace UdpKit {
                 tail += 1;
                 tail &= mask;
 
-                sequenceNext = value.Sequence + 1u;
+                sequenceNext = value.sequence + 1u;
                 sequenceNext &= sequenceMask;
             } else {
                 value = default(T);
@@ -71,7 +73,7 @@ namespace UdpKit {
         }
 
         public bool TryEnqueueForDelivery (T value, out UdpReliableRecvResult result) {
-            int distance = SequenceDistance(value.Sequence, sequenceNext, sequenceShift);
+            int distance = SequenceDistance(value.sequence, sequenceNext, sequenceShift);
             int index = (tail + distance) & mask;
 
             if (distance <= -nodes.Length || distance >= nodes.Length) {
@@ -100,6 +102,34 @@ namespace UdpKit {
             from <<= shift;
             to <<= shift;
             return ((int) (from - to)) >> shift;
+        }
+
+        // Erhune: added
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        // Erhune: added
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (int i = 0, n = nodes.Length; i < n; i++)
+            {
+                var node = nodes[i];
+                if (node.Received)
+                {
+                    yield return node.Value;
+                }
+            }
+        }
+
+        // Erhune: added
+        public void Clear()
+        {
+            for (int i = 0, n = nodes.Length; i < n; i++)
+            {
+                nodes[i] = default(Node);
+            }
         }
     }
 }

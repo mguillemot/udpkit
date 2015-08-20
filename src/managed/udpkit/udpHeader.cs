@@ -1,4 +1,4 @@
-﻿/*
+/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -23,9 +23,12 @@
 */
 
 namespace UdpKit {
-    struct UdpHeader {
-        public const int SEQ_BITS = 15;
-        public const int SEQ_PADD = 16 - SEQ_BITS;
+    public struct UdpHeader {
+
+        // Erhune changes: sequence 15->16 bits, simplify padding, remove "object" notion from headers
+
+        public const int SEQ_BITS = 16;
+        public const int SEQ_PADD = 0; 
         public const int SEQ_MASK = (1 << SEQ_BITS) - 1;
         public const int NETPING_BITS = 16;
 
@@ -33,15 +36,15 @@ namespace UdpKit {
         public ushort AckSequence;
         public ulong AckHistory;
         public ushort AckTime;
-        public bool IsObject;
+        //public bool IsObject;
         public uint Now;
 
         public void Pack (UdpStream buffer, UdpSocket socket) {
             int pos = buffer.Position;
 
             buffer.Position = 0;
-            buffer.WriteUShort(PadSequence(ObjSequence), SEQ_BITS + SEQ_PADD);
-            buffer.WriteUShort(PadSequence(AckSequence), SEQ_BITS + SEQ_PADD);
+            buffer.WriteUShort(ObjSequence, SEQ_BITS); // Erhune simplify
+            buffer.WriteUShort(AckSequence, SEQ_BITS);
             buffer.WriteULong(AckHistory, UdpSocket.AckRedundancy);
 
             if (UdpSocket.CalculateNetworkPing) {
@@ -51,11 +54,11 @@ namespace UdpKit {
             buffer.Position = pos;
         }
 
-        public void Unpack (UdpStream buffer, UdpSocket socket) {
+        public void Unpack (UdpStream buffer) {
             buffer.Position = 0;
 
-            ObjSequence = TrimSequence(buffer.ReadUShort(SEQ_BITS + SEQ_PADD));
-            AckSequence = TrimSequence(buffer.ReadUShort(SEQ_BITS + SEQ_PADD));
+            ObjSequence = buffer.ReadUShort(SEQ_BITS);
+            AckSequence = buffer.ReadUShort(SEQ_BITS);
             AckHistory = buffer.ReadULong(UdpSocket.AckRedundancy);
 
             if (UdpSocket.CalculateNetworkPing) {
@@ -63,18 +66,5 @@ namespace UdpKit {
             }
         }
 
-        ushort PadSequence (ushort sequence) {
-            sequence <<= SEQ_PADD;
-
-            if (IsObject)
-                sequence |= ((1 << SEQ_PADD) - 1);
-
-            return sequence;
-        }
-
-        ushort TrimSequence (ushort sequence) {
-            sequence >>= SEQ_PADD;
-            return sequence;
-        }
     }
 }

@@ -1,4 +1,4 @@
-﻿/*
+/*
 * The MIT License (MIT)
 * 
 * Copyright (c) 2012-2014 Fredrik Holmstrom (fredrik.johan.holmstrom@gmail.com)
@@ -25,11 +25,15 @@
 namespace UdpKit {
     public delegate float UdpNoise ();
 
+    // Erhune: added
+    public delegate uint CustomDelay(UdpStream stream);
+    public delegate bool CustomDrop(UdpStream stream);
+
     public class UdpConfig {
         /// <summary>
         /// The packet size, default: 1024 (1kb)
         /// </summary>
-        public int PacketSize = 1024;
+        public int PacketSize = 1200; // Erhune increase
 
         /// <summary>
         /// The default network ping for new connections, default: 0.1f (seconds)
@@ -140,6 +144,11 @@ namespace UdpKit {
         /// Custom noise function for use in packet loss simulation, default: null
         /// </summary>
         public UdpNoise NoiseFunction = null;
+
+        // Erhune: added for automated tests
+        public CustomDelay DelayIncomingPackets = null;
+        public CustomDrop DropIncomingPackets = null;
+        public CustomDrop DropOutgoingPackets = null;
 
         internal UdpConfig Duplicate () {
             return (UdpConfig) MemberwiseClone();
